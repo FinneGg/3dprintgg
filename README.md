@@ -15,4 +15,6 @@ Danach im Browser `http://localhost:8080` öffnen.
 Nach dem Veröffentlichen über GitHub Pages ist die Seite unter
 <https://finnegg.github.io/3dprintgg/> erreichbar.
 
+Die Seite wird bei jedem Push auf `main` automatisch aktualisiert.
+
 Der Bestellversand erwartet zusätzlich eine konfigurierte `/api/order`-Route. Ohne Backend funktionieren Katalog, Artikelansicht und Warenkorb lokal; das Absenden einer Bestellung benötigt die Vercel-/Google-Apps-Script-Anbindung.
