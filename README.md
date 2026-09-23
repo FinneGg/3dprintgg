@@ -17,4 +17,11 @@ Nach dem Veröffentlichen über GitHub Pages ist die Seite unter
 
 Die Seite wird bei jedem Push auf `main` automatisch aktualisiert.
 
-Der Bestellversand erwartet zusätzlich eine konfigurierte `/api/order`-Route. Ohne Backend funktionieren Katalog, Artikelansicht und Warenkorb lokal; das Absenden einer Bestellung benötigt die Vercel-/Google-Apps-Script-Anbindung.
+## Bestellungen speichern
+
+Die Route `api/order.js` speichert Bestellungen über Google Apps Script im Tabellenblatt `Bestellungen`. Dafür muss das Projekt bei Vercel (kostenloser Hobby-Tarif) veröffentlicht werden. Hinterlege dort diese Umgebungsvariablen:
+
+- `GOOGLE_SCRIPT_URL`: Web-App-URL des Google-Apps-Script-Projekts
+- `GOOGLE_SCRIPT_SECRET`: derselbe geheime Wert wie die Apps-Script-Eigenschaft `ORDER_SECRET`
+
+GitHub Pages kann die statische Seite anzeigen, aber keine `/api/order`-Route ausführen. Für ein funktionierendes Bestellformular muss die Website daher über Vercel laufen.
