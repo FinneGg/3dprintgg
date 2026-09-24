@@ -20,7 +20,7 @@ const PRODUCTS = {
   'dumpling-squishies': { name: 'Dumpling-Squishies', price: 200 }
 };
 
-const DEFAULT_GOOGLE_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwpoayNW7qqAYr19R6U2X_hUZ31VlrPqtZbyOZrQjAAYL4Pw9j-L_D441D__np57R1M/exec';
+const DEFAULT_GOOGLE_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbyEi1FXX7D-RhIm5ZFjCpFoEfsv8UqGzlOAW_inKt1hlWmwrHtDz7TwDG7alVUe889P/exec';
 
 function text(value, maxLength) {
   return String(value || '').replace(/\r/g, '').trim().slice(0, maxLength);
