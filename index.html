@@ -122,6 +122,11 @@
     .send-button:hover { background: var(--green-dark); transform: translateY(-1px); }
     .send-button:disabled { opacity: .65; cursor: wait; transform: none; }
     .cart-empty { padding: 30px 15px; border: 1px dashed #ccd3c7; border-radius: 17px; color: var(--muted); text-align: center; font-size: 14px; }
+    .saved-orders { margin-top: 40px; padding-top: 24px; border-top: 1px solid var(--line); }
+    .saved-orders h3 { margin: 0 0 10px; font-size: 16px; }
+    .saved-orders-list { display: grid; gap: 9px; }
+    .saved-order { padding: 10px 12px; border: 1px solid var(--line); border-radius: 13px; background: white; font-size: 12px; line-height: 1.5; }
+    .saved-order strong { font-size: 13px; }
     .honeypot { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
     .toast { position: fixed; left: 50%; bottom: 24px; z-index: 30; transform: translate(-50%, 15px); opacity: 0; pointer-events: none; padding: 12px 18px; border-radius: 999px; background: var(--ink); color: white; box-shadow: var(--shadow); font-size: 13px; transition: opacity .2s ease, transform .2s ease; }
     .toast.show { transform: translate(-50%, 0); opacity: 1; }
@@ -208,6 +213,12 @@
       </div>
     </section>
 
+    <section class="saved-orders" aria-live="polite">
+      <div class="section-head" style="margin-top:0"><div><span class="eyebrow" style="color:#718f3a">Gemeinsame Übersicht</span><h2>Bestellliste</h2></div><p>Auf jedem Gerät mit dem gleichen Code</p></div>
+      <div class="form-field"><label for="list-code">Listen-Code</label><input id="list-code" name="listCode" maxlength="100" autocomplete="off" placeholder="Zum Beispiel: familie2026"><small>Gib den Code ein, um gespeicherte Bestellungen direkt hier zu sehen.</small></div>
+      <div class="saved-orders-list" id="saved-orders-list">Gib einen Listen-Code ein, um die Liste zu laden.</div>
+    </section>
+
     <footer class="footer"><span><strong>3dPrint GG</strong> · Gedruckt mit Freude.</span><span>Fragen? <a href="mailto:3dprinterteamgg@gmail.com" style="color:inherit">Schreib uns</a></span></footer>
   </main>
 
@@ -224,7 +235,7 @@
         <div class="form-field"><label for="order-message">Beschreibung / Nachricht *</label><textarea id="order-message" name="message" rows="4" maxlength="2000" required placeholder="Zum Beispiel: Farbe, Wunschdetails oder deine Frage"></textarea><small>Wenn du etwas bei „Sonstiges“ eingetragen hast, kannst du es hier ergänzen.</small></div>
         <label class="honeypot" aria-hidden="true">Website<input name="website" tabindex="-1" autocomplete="off"></label>
         <button class="send-button" id="send-button" type="submit">Auftrag senden <span aria-hidden="true">↗</span></button>
-        <small style="display:block;margin-top:10px;color:var(--muted);line-height:1.5">Mit dem Absenden wird deine Anfrage an 3dprinterteamgg@gmail.com gesendet.</small>
+        <small style="display:block;margin-top:10px;color:var(--muted);line-height:1.5">Mit dem Absenden wird deine Bestellung in der gemeinsamen Liste gespeichert.</small>
       </form>
     </aside>
   </div>
@@ -279,6 +290,31 @@
     const orderForm = document.querySelector('#order-form');
     const toast = document.querySelector('#toast');
     const escapeHtml = value => String(value).replace(/[&<>"']/g, character => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[character]);
+
+    function renderSavedOrders(orders) {
+      const list = document.querySelector('#saved-orders-list');
+      if (!orders.length) {
+        list.textContent = 'Noch keine Bestellungen in dieser Liste.';
+        return;
+      }
+      list.innerHTML = orders.map(order => {
+        const items = order.items.map(item => `${item.name} x ${item.quantity}`).join(', ');
+        const date = new Date(order.submittedAt).toLocaleString('de-DE');
+        return `<div class="saved-order"><strong>${escapeHtml(order.name)}</strong> · ${escapeHtml(date)}<br>${escapeHtml(items)}<br>${escapeHtml(order.message)}</div>`;
+      }).join('');
+    }
+
+    async function loadSavedOrders() {
+      const code = document.querySelector('#list-code').value.trim();
+      if (!code) {
+        document.querySelector('#saved-orders-list').textContent = 'Gib einen Listen-Code ein, um die Liste zu laden.';
+        return;
+      }
+      const response = await fetch(`/api/order?code=${encodeURIComponent(code)}`);
+      const result = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(result.error || 'Die Liste konnte nicht geladen werden.');
+      renderSavedOrders(result.orders || []);
+    }
 
     function renderCategories() {
       categoryGrid.innerHTML = categories.map(category => {
@@ -374,6 +410,9 @@
       updateBasket();
       if (overlay.classList.contains('open')) renderCart();
     });
+    document.querySelector('#list-code').addEventListener('change', () => {
+      loadSavedOrders().catch(error => showToast(error.message));
+    });
     orderForm.addEventListener('submit', async event => {
       event.preventDefault();
       const button = document.querySelector('#send-button');
@@ -381,12 +420,14 @@
       if (!basket.size && !otherRequest) return;
       const message = document.querySelector('#order-message').value.trim();
       const name = document.querySelector('#customer-name').value.trim();
-      if (!name || !message) return;
+      const listCode = document.querySelector('#list-code').value.trim();
+      if (!name || !message || !listCode) return;
       button.disabled = true;
       button.textContent = 'Wird gesendet …';
       const payload = {
         name,
         message,
+        listCode,
         otherRequest,
         website: orderForm.elements.website.value,
         items: [...basket.entries()].map(([id, quantity]) => ({ id, quantity }))
@@ -399,6 +440,7 @@
         }
         basket.clear();
         sessionStorage.removeItem('3dprint-gg-other');
+        await loadSavedOrders();
         orderForm.reset();
         document.querySelector('#other-request').value = '';
         updateBasket();

@@ -105,6 +105,31 @@ function doPost(e) {
   }
 }
 
+function doGet(e) {
+  try {
+    const properties = PropertiesService.getScriptProperties();
+    const expectedSecret = properties.getProperty('ORDER_SECRET');
+    const code = safeText(e && e.parameter ? e.parameter.code : '', 100);
+    const secret = safeText(e && e.parameter ? e.parameter.secret : '', 200);
+    if (!expectedSecret || secret !== expectedSecret || !code) {
+      return jsonResponse({ ok: false, error: 'Nicht autorisiert.' });
+    }
+
+    const sheet = SpreadsheetApp.openById(SPREADSHEET_ID).getSheetByName('Bestellungen');
+    if (!sheet || sheet.getLastRow() < 2) return jsonResponse({ ok: true, orders: [] });
+    const rows = sheet.getDataRange().getValues();
+    const orders = rows.slice(1).filter(row => String(row[7] || '') === code).map(row => ({
+      name: String(row[2] || ''),
+      items: String(row[3] || '').split('\n').map(item => ({ name: item, quantity: 1 })),
+      message: String(row[5] || ''),
+      submittedAt: new Date(row[0]).toISOString()
+    }));
+    return jsonResponse({ ok: true, orders });
+  } catch (error) {
+    return jsonResponse({ ok: false, error: 'Die Bestellliste konnte nicht geladen werden.' });
+  }
+}
+
 function jsonResponse(value) {
   return ContentService
     .createTextOutput(JSON.stringify(value))
@@ -144,9 +169,10 @@ function doPost(e) {
 
     const name = safeText(body.name, 100);
     const message = safeText(body.message, 2000);
+    const listCode = safeText(body.listCode, 100);
     const otherRequest = safeText(body.otherRequest, 1200);
     const items = Array.isArray(body.items) ? body.items : [];
-    if (!name || !message || items.length > 30 || (!items.length && !otherRequest)) {
+    if (!name || !message || !listCode || items.length > 30 || (!items.length && !otherRequest)) {
       return jsonResponse({ ok: false, error: 'Die Bestelldaten sind unvollständig.' });
     }
 
@@ -169,7 +195,7 @@ function doPost(e) {
     let sheet = spreadsheet.getSheetByName(sheetName);
     if (!sheet) sheet = spreadsheet.insertSheet(sheetName);
     if (sheet.getLastRow() === 0) {
-      sheet.appendRow(['Eingegangen', 'Auftragsnummer', 'Name', 'Artikel', 'Zwischensumme (€)', 'Beschreibung', 'Wunsch aus Sonstiges']);
+      sheet.appendRow(['Eingegangen', 'Auftragsnummer', 'Name', 'Artikel', 'Zwischensumme (€)', 'Beschreibung', 'Wunsch aus Sonstiges', 'Listen-Code']);
       sheet.setFrozenRows(1);
     }
 
@@ -186,7 +212,8 @@ function doPost(e) {
       safeText(itemSummary, 5000),
       totalCents / 100,
       message,
-      otherRequest
+      otherRequest,
+      listCode
     ]);
     sheet.getRange(rowNumber, 1).setNumberFormat('yyyy-mm-dd hh:mm:ss');
     sheet.getRange(rowNumber, 5).setNumberFormat('#,##0.00 "€"');

@@ -25,6 +25,27 @@ function text(value, maxLength) {
 }
 
 export default async function handler(request, response) {
+  if (request.method === 'GET') {
+    const scriptUrl = process.env.GOOGLE_SCRIPT_URL;
+    const secret = process.env.GOOGLE_SCRIPT_SECRET;
+    const code = text(new URL(request.url, 'http://localhost').searchParams.get('code'), 100);
+    if (!scriptUrl || !secret || !code) {
+      return response.status(400).json({ error: 'Listen-Code fehlt.' });
+    }
+
+    try {
+      const googleResponse = await fetch(`${scriptUrl}?code=${encodeURIComponent(code)}&secret=${encodeURIComponent(secret)}`);
+      const result = await googleResponse.json().catch(() => ({}));
+      if (!googleResponse.ok || !result.ok) {
+        return response.status(502).json({ error: result.error || 'Die Liste konnte nicht geladen werden.' });
+      }
+      return response.status(200).json(result);
+    } catch (error) {
+      console.error('Order list loading failed:', error);
+      return response.status(502).json({ error: 'Die Bestellliste ist momentan nicht erreichbar.' });
+    }
+  }
+
   if (request.method !== 'POST') {
     response.setHeader('Allow', 'POST');
     return response.status(405).json({ error: 'Methode nicht erlaubt.' });
@@ -44,8 +65,9 @@ export default async function handler(request, response) {
   const name = text(body.name, 100);
   const message = text(body.message, 2000);
   const otherRequest = text(body.otherRequest, 1200);
+  const listCode = text(body.listCode, 100);
   const requestedItems = Array.isArray(body.items) ? body.items : [];
-  if (!name || !message || requestedItems.length > 30 || (!requestedItems.length && !otherRequest)) {
+  if (!name || !message || !listCode || requestedItems.length > 30 || (!requestedItems.length && !otherRequest)) {
     return response.status(400).json({ error: 'Name, Nachricht oder Artikel fehlen.' });
   }
 
@@ -68,7 +90,7 @@ export default async function handler(request, response) {
     const googleResponse = await fetch(scriptUrl, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ secret, name, message, otherRequest, items, totalCents })
+      body: JSON.stringify({ secret, name, message, listCode, otherRequest, items, totalCents })
     });
     const result = await googleResponse.json().catch(() => ({}));
     if (!googleResponse.ok || !result.ok) {
