@@ -20,13 +20,15 @@ const PRODUCTS = {
   'dumpling-squishies': { name: 'Dumpling-Squishies', price: 200 }
 };
 
+const DEFAULT_GOOGLE_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwpoayNW7qqAYr19R6U2X_hUZ31VlrPqtZbyOZrQjAAYL4Pw9j-L_D441D__np57R1M/exec';
+
 function text(value, maxLength) {
   return String(value || '').replace(/\r/g, '').trim().slice(0, maxLength);
 }
 
 export default async function handler(request, response) {
   if (request.method === 'GET') {
-    const scriptUrl = process.env.GOOGLE_SCRIPT_URL;
+    const scriptUrl = process.env.GOOGLE_SCRIPT_URL || DEFAULT_GOOGLE_SCRIPT_URL;
     const secret = process.env.GOOGLE_SCRIPT_SECRET;
     const code = text(new URL(request.url, 'http://localhost').searchParams.get('code'), 100);
     if (!scriptUrl || !secret || !code) {
@@ -51,7 +53,7 @@ export default async function handler(request, response) {
     return response.status(405).json({ error: 'Methode nicht erlaubt.' });
   }
 
-  const scriptUrl = process.env.GOOGLE_SCRIPT_URL;
+  const scriptUrl = process.env.GOOGLE_SCRIPT_URL || DEFAULT_GOOGLE_SCRIPT_URL;
   const secret = process.env.GOOGLE_SCRIPT_SECRET;
   if (!scriptUrl || !secret) {
     return response.status(503).json({ error: 'Die Bestellverbindung ist noch nicht eingerichtet.' });
